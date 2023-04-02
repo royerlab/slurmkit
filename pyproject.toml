@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "slurmkit"
+version = "0.1.0"
+description = ""
+authors = ["Jordao Bragantini <jordao.bragantini@czbiohub.org>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "^1.10.7"
+cloudpickle = "^2.2.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.2"
+pytest-cov = "^4.0.0"
+mypy = "^1.1.1"
+pre-commit = "^3.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+funcall = "slurmkit.funcall:main"
