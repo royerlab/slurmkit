@@ -1,7 +1,6 @@
 import argparse
-import pickle 
-
-from typing import Callable, Sequence, Dict, Tuple, get_type_hints
+import pickle
+from typing import Callable, Dict, Sequence, Tuple, get_type_hints
 
 
 def _parse() -> Tuple[Callable, Sequence, Dict]:
@@ -20,7 +19,7 @@ def _parse() -> Tuple[Callable, Sequence, Dict]:
         nargs="*",
         metavar=("name", "value"),
         required=False,
-        help="Keyword parameter name and value pairs"
+        help="Keyword parameter name and value pairs",
     )
 
     cli_args = parser.parse_args()
@@ -34,7 +33,9 @@ def _parse() -> Tuple[Callable, Sequence, Dict]:
 
     for key in params:
         if key in kwargs:
-            raise ValueError(f"Found duplicated key {key} in `--params` and pickled function kwargs.")
+            raise ValueError(
+                f"Found duplicated key {key} in `--params` and pickled function kwargs."
+            )
 
     kwargs.update(params)
 

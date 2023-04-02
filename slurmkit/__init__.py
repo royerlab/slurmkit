@@ -1,14 +1,13 @@
+import base64
 import datetime
 import functools
 import hashlib
-import base64
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Union, Sequence, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union
 
 import cloudpickle
 from pydantic import BaseModel, validator
-
 
 Integers = Union[int, Sequence[int]]
 
@@ -45,26 +44,43 @@ class SlurmParams(BaseModel):
     threads_per_core: Optional[int] = None
     threads_per_node: Optional[int] = None
 
-    def check_mutual_exclusivity(self, values: Dict[str, Any], exclusive_fields: List[str]) -> None:
+    def check_mutual_exclusivity(
+        self, values: Dict[str, Any], exclusive_fields: List[str]
+    ) -> None:
         exclusive_values = map(values.get, exclusive_fields)
         num_set_values = sum(map(lambda x: x is not None, exclusive_values))
         if num_set_values > 0:
-            raise ValueError(f"Mutually exclusive fields `{exclusive_fields}` where set.")
-    
+            raise ValueError(
+                f"Mutually exclusive fields `{exclusive_fields}` where set."
+            )
+
     @validator("cpus_per_task")
-    def validate_cpus_exclusivity(cls, value: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+    def validate_cpus_exclusivity(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
         cls.check_mutual_exclusivity(values, ["cpu_per_task", "cpus_per_gpu"])
         return value
 
     @validator("mem")
-    def validate_mem_exclusivity(cls, value: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+    def validate_mem_exclusivity(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
         cls.check_mutual_exclusivity(values, ["mem", "mem_per_gpu", "mem_per_cpu"])
         return value
 
     @validator("ntask")
-    def validate_ntask_exclusivity(cls, value: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+    def validate_ntask_exclusivity(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
         cls.check_mutual_exclusivity(
-            values, ["ntask", "ntask_per_core", "ntask_per_gpu", "ntask_per_node", "ntask_per_socket"],
+            values,
+            [
+                "ntask",
+                "ntask_per_core",
+                "ntask_per_gpu",
+                "ntask_per_node",
+                "ntask_per_socket",
+            ],
         )
         return value
 
@@ -75,20 +91,22 @@ class SlurmParams(BaseModel):
 
         mem_types = ("K", "M", "G", "T", "P")
         if not value.upper().endswith(mem_types):
-            raise ValueError(f"`{field}` must end with on of {mem_types}. Received {value}.")
+            raise ValueError(
+                f"`{field}` must end with on of {mem_types}. Received {value}."
+            )
 
         return value
 
     def __str__(self) -> str:
         return " ".join(self.tolist())
-    
+
     def tolist(self) -> List[str]:
         options = []
         for param, value in self:
             if value is None:
                 continue
 
-            param = param.replace('_', '-')
+            param = param.replace("_", "-")
             if isinstance(value, (list, tuple)):
                 value = ",".join(map(str, value))
 
@@ -107,13 +125,15 @@ class SlurmParams(BaseModel):
 
 class SlurmDependencies(BaseModel):
     values: Optional[Integers] = None
-    dep_type: Literal["after", "afterany", "afternotok", "afterok", "singleton"] = "afterok"
+    dep_type: Literal[
+        "after", "afterany", "afternotok", "afterok", "singleton"
+    ] = "afterok"
     minutes: int = 0
 
     def __str__(self) -> str:
         if self.values is None:
             return ""
-        
+
         if isinstance(self.values, int):
             jobs = str(self.values)
         else:
@@ -125,7 +145,7 @@ class SlurmDependencies(BaseModel):
             dependency += f"+{self.minutes}"
 
         return dependency
-    
+
     def tolist(self) -> List[str]:
         dependency = str(self)
         if not dependency:
@@ -142,14 +162,16 @@ def submit_cli(
 
     if slurm_params is None:
         slurm_params = SlurmParams()
-    
+
     if not isinstance(dependencies, SlurmDependencies):
         dependencies = SlurmDependencies(values=dependencies)
-    
-    command = ["sbatch", "--parsable"] \
-        + slurm_params.tolist() \
-        + dependencies.tolist() \
+
+    command = (
+        ["sbatch", "--parsable"]
+        + slurm_params.tolist()
+        + dependencies.tolist()
         + list(args)
+    )
 
     complete_proc = subprocess.run(command)
     return complete_proc.returncode
@@ -172,7 +194,7 @@ def submit_function(
     if not function_path.exists():
         with open(function_path, mode="wb") as f:
             f.write(slurm_function)
-    
+
     command = ["funcall", str(function_path)]
     if len(kwargs) > 0:
         command.append("--params")
@@ -191,6 +213,7 @@ def slurm_function(func: Callable) -> Callable[[Any], bytes]:
     -------
         Function that returns a delayed function tuple.
     """
+
     def pickled_function(*args, **kwargs) -> bytes:
         func_tuple = (func, args, kwargs)
         return cloudpickle.dumps(func_tuple)
