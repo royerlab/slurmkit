@@ -1,35 +1,39 @@
 import argparse
 import pickle
-from typing import Callable, Dict, Sequence, Tuple, get_type_hints
+import sys
+from typing import Callable, Dict, Optional, Sequence, Tuple, get_type_hints
 
 
-def _parse() -> Tuple[Callable, Sequence, Dict]:
+def _parse_args(argv: Optional[Sequence[str]]) -> Tuple[Callable, Sequence, Dict]:
     parser = argparse.ArgumentParser(
         "funcall",
-        description="Executes a function given a pickled function, args, kwargs tuple path",
+        description="Executes a pickled (function, args, kwargs) tuple given its path.",
     )
     parser.add_argument(
-        "func-tuple-path",
-        required=True,
+        "FUNC-TUPLE-PATH",
         type=str,
-        help="Path to pickled object of a tuple of function, args and kwargs.",
+        help="Path to pickled object of a tuple of (function, args and kwargs).",
     )
     parser.add_argument(
         "--params",
         nargs="*",
         metavar=("name", "value"),
         required=False,
-        help="Keyword parameter name and value pairs",
+        default=tuple(),
+        help="Keyword parameter name and value pairs.",
     )
 
-    cli_args = parser.parse_args()
+    cli_args = vars(parser.parse_args(argv))
 
-    with open(cli_args.func_tuple_path, mode="rb") as f:
+    with open(cli_args["FUNC-TUPLE-PATH"], mode="rb") as f:
         func, args, kwargs = pickle.load(f)
 
     types = get_type_hints(func)
 
-    params = {name: types[name](value) for name, value in cli_args.params}
+    params = {
+        name: types[name](value)
+        for name, value in zip(cli_args["params"][::2], cli_args["params"][1::2])
+    }
 
     for key in params:
         if key in kwargs:
@@ -42,10 +46,10 @@ def _parse() -> Tuple[Callable, Sequence, Dict]:
     return func, args, kwargs
 
 
-def main() -> None:
-    func, args, kwargs = _parse()
-    func(args, kwargs)
+def main(argv: Optional[Sequence[str]] = None) -> None:
+    func, args, kwargs = _parse_args(argv)
+    func(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

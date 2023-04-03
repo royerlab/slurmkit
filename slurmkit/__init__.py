@@ -2,6 +2,7 @@ import base64
 import datetime
 import functools
 import hashlib
+import logging
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union
@@ -10,6 +11,9 @@ import cloudpickle
 from pydantic import BaseModel, validator
 
 Integers = Union[int, Sequence[int]]
+
+
+LOG = logging.getLogger(__name__)
 
 
 class SlurmParams(BaseModel):
@@ -68,14 +72,14 @@ class SlurmParams(BaseModel):
         cls.check_mutual_exclusivity(values, ["mem", "mem_per_gpu", "mem_per_cpu"])
         return value
 
-    @validator("ntask")
+    @validator("ntasks")
     def validate_ntask_exclusivity(
         cls, value: Optional[str], values: Dict[str, Any]
     ) -> Optional[str]:
         cls.check_mutual_exclusivity(
             values,
             [
-                "ntask",
+                "ntasks",
                 "ntask_per_core",
                 "ntask_per_gpu",
                 "ntask_per_node",
@@ -157,7 +161,8 @@ def submit_cli(
     args: Sequence[str],
     slurm_params: Optional[SlurmParams] = None,
     dependencies: SlurmDependencies | Optional[Integers] = None,
-) -> int:
+    no_sbatch: bool = False,
+) -> Union[int, subprocess.CompletedProcess]:
     # TODO
 
     if slurm_params is None:
@@ -166,31 +171,40 @@ def submit_cli(
     if not isinstance(dependencies, SlurmDependencies):
         dependencies = SlurmDependencies(values=dependencies)
 
-    command = (
-        ["sbatch", "--parsable"]
-        + slurm_params.tolist()
-        + dependencies.tolist()
-        + list(args)
-    )
+    if no_sbatch:
+        command = list(args)
+    else:
+        command = (
+            ["sbatch", "--parsable"]
+            + slurm_params.tolist()
+            + dependencies.tolist()
+            + list(args)
+        )
 
-    complete_proc = subprocess.run(command)
-    return complete_proc.returncode
+    LOG.info(f"Executing {' '.join(command)}")
+
+    complete_proc = subprocess.run(command, capture_output=True, check=True)
+
+    return complete_proc if no_sbatch else int(complete_proc.stdout)
 
 
 def get_bytes_file_name(data: bytes) -> str:
     # TODO
     # https://stackoverflow.com/questions/4567089/hash-function-that-produces-short-hashes
-    return f"{base64.b64encode(hashlib.sha1(data).digest()).decode('utf-8')}.pickle"
+    name = base64.b64encode(hashlib.sha1(data).digest()).decode()
+    name = name.replace("/", "_")
+    return f"{name}.pickle"
 
 
 def submit_function(
     slurm_function: bytes,
     slurm_params: Optional[SlurmParams] = None,
     dependencies: SlurmDependencies | Optional[Integers] = None,
+    no_sbatch: bool = False,
     **kwargs,
-) -> int:
+) -> Union[int, subprocess.CompletedProcess]:
     # TODO
-    function_path = Path(get_bytes_file_name(slurm_function))
+    function_path = Path(get_bytes_file_name(slurm_function)).resolve()
     if not function_path.exists():
         with open(function_path, mode="wb") as f:
             f.write(slurm_function)
@@ -201,10 +215,15 @@ def submit_function(
         for key, value in kwargs.items():
             command += [key, str(value)]
 
-    return submit_cli(command, slurm_params=slurm_params, dependencies=dependencies)
+    return submit_cli(
+        command,
+        slurm_params=slurm_params,
+        dependencies=dependencies,
+        no_sbatch=no_sbatch,
+    )
 
 
-def slurm_function(func: Callable) -> Callable[[Any], bytes]:
+def slurm_function(func: Callable) -> Callable:
     """Wraps a function storing its parameters upon call.
 
     Reference: https://github.com/joblib/joblib/blob/master/joblib/parallel.py
@@ -216,11 +235,14 @@ def slurm_function(func: Callable) -> Callable[[Any], bytes]:
 
     def pickled_function(*args, **kwargs) -> bytes:
         func_tuple = (func, args, kwargs)
+        LOG.info(
+            f"Pickling function `{func.__name__}` with args={args} and kwargs={kwargs}."
+        )
         return cloudpickle.dumps(func_tuple)
 
     try:
         pickled_function = functools.wraps(func)(pickled_function)
     except AttributeError:
-        print(f"`functools.wraps` failed on {func.__name__}")
+        LOG.warn(f"`functools.wraps` failed on {func.__name__}")
 
     return pickled_function
