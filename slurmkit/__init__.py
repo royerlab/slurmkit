@@ -17,8 +17,8 @@ LOG = logging.getLogger(__name__)
 
 
 class SlurmParams(BaseModel):
-    output: Optional[str] = None
-    error: Optional[str] = None
+    output: Optional[Union[str, Path]] = None
+    error: Optional[Union[str, Path]] = None
     nodes: Optional[int] = None
     cpus_per_task: Optional[int] = None
     cpus_per_gpu: Optional[int] = None
@@ -48,8 +48,9 @@ class SlurmParams(BaseModel):
     threads_per_core: Optional[int] = None
     threads_per_node: Optional[int] = None
 
+    @staticmethod
     def check_mutual_exclusivity(
-        self, values: Dict[str, Any], exclusive_fields: List[str]
+        values: Dict[str, Any], exclusive_fields: List[str]
     ) -> None:
         exclusive_values = map(values.get, exclusive_fields)
         num_set_values = sum(map(lambda x: x is not None, exclusive_values))
@@ -181,7 +182,7 @@ def submit_cli(
             + list(args)
         )
 
-    LOG.info(f"Executing {' '.join(command)}")
+    LOG.info(f"Executing: {' '.join(command)}")
 
     complete_proc = subprocess.run(command, capture_output=True, check=True)
 
