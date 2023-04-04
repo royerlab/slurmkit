@@ -1,13 +1,14 @@
+import os
 import shutil
 import time
-import os
 from pathlib import Path
+from typing import Generator, cast
 
+import numpy as np
 import pytest
 import zarr
-import numpy as np
 
-from slurmkit import slurm_function, submit_function, SlurmParams
+from slurmkit import SlurmParams, slurm_function, submit_function
 
 
 def has_slurm() -> bool:
@@ -18,7 +19,7 @@ pytestmark = pytest.mark.skipif(not has_slurm(), reason="SLURM not found.")
 
 
 @pytest.fixture
-def shared_path() -> Path:
+def shared_path() -> Generator[Path, None, None]:
     path = Path(os.environ["MYDATA"])
     assert path.exists()
     path = path / "slurmkit_test"
@@ -30,7 +31,6 @@ def shared_path() -> Path:
 
 
 def test_simple_slurm(shared_path: Path) -> None:
-
     @slurm_function
     def add(a: int, b: int) -> None:
         c = a + b
@@ -42,13 +42,11 @@ def test_simple_slurm(shared_path: Path) -> None:
 
     time.sleep(3)
 
-    output = str(output).replace("%j", str(job))
-    with open(output) as f:
+    with open(str(output).replace("%j", str(job))) as f:
         assert int(f.read()[-2]) == 3
 
 
 def test_slurm_dependency(shared_path: Path) -> None:
-
     def _create_ones(size: int, out_path: Path) -> None:
         zarr.ones(shape=(size, size), store=zarr.DirectoryStore(out_path))
 
@@ -62,17 +60,15 @@ def test_slurm_dependency(shared_path: Path) -> None:
         in_arr2 = zarr.open(in_path_2)
         out_arr = zarr.empty_like(in_arr1, store=zarr.DirectoryStore(out_path))
         out_arr[:] = in_arr1[:] + in_arr2[:]
-    
+
     size = 5
     params = SlurmParams(output=shared_path / "slurmkit-test-%j.out")
 
     create_ones = slurm_function(_create_ones)(size=size)
 
     paths = [shared_path / f"{i}.zarr" for i in range(2)]
-    
-    jobs = [
-        submit_function(create_ones, params, out_path=p) for p in paths
-    ]
+
+    jobs = [cast(int, submit_function(create_ones, params, out_path=p)) for p in paths]
 
     out_path = shared_path / "out.zarr"
     submit_function(_sum_zarr(*paths, out_path=out_path), params, dependencies=jobs)
@@ -82,5 +78,3 @@ def test_slurm_dependency(shared_path: Path) -> None:
 
     arr = zarr.open(out_path)
     assert np.allclose(arr[:], 2)
-
-
