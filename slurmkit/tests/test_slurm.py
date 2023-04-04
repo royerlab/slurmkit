@@ -40,6 +40,7 @@ def test_simple_slurm(shared_path: Path) -> None:
     params = SlurmParams(output=output, mem="5M")
     job = submit_function(add(1, 2), params)
 
+    # waiting for jobs to complete
     time.sleep(3)
 
     with open(str(output).replace("%j", str(job))) as f:
