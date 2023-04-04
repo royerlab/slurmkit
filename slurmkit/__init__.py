@@ -164,7 +164,24 @@ def submit_cli(
     dependencies: SlurmDependencies | Optional[Integers] = None,
     no_sbatch: bool = False,
 ) -> Union[int, subprocess.CompletedProcess]:
-    # TODO
+    """SLURM sbatch submission using CLI instructions.
+
+    Parameters
+    ----------
+    args : Sequence[str]
+        List of commands and parameters, just like `subprocess.run`.
+    slurm_params : Optional[SlurmParams], optional
+        sbatch parameters, by default None
+    dependencies : SlurmDependencies | Optional[Integers], optional
+        List of dependencies' job IDs, by default None
+    no_sbatch : bool, optional
+        Executes the command without SLURM, by default False. Used during testing.
+
+    Returns
+    -------
+    Union[int, subprocess.CompletedProcess]
+        Job ID of submitted job or CompletedProcess object when `no_sbatch` is True.
+    """
 
     if slurm_params is None:
         slurm_params = SlurmParams()
@@ -190,8 +207,7 @@ def submit_cli(
 
 
 def get_bytes_file_name(data: bytes) -> str:
-    # TODO
-    # https://stackoverflow.com/questions/4567089/hash-function-that-produces-short-hashes
+    """Creates a unique name for each `data`."""
     name = base64.b64encode(hashlib.sha1(data).digest()).decode()
     name = name.replace("/", "_")
     return f"{name}.pickle"
@@ -202,9 +218,30 @@ def submit_function(
     slurm_params: Optional[SlurmParams] = None,
     dependencies: SlurmDependencies | Optional[Integers] = None,
     no_sbatch: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ) -> Union[int, subprocess.CompletedProcess]:
-    # TODO
+    """SLURM sbatch submission from a function.
+
+    Parameters
+    ----------
+    args : Sequence[str]
+        List of commands and parameters, just like `subprocess.run`.
+    slurm_params : Optional[SlurmParams], optional
+        sbatch parameters, by default None
+    dependencies : SlurmDependencies | Optional[Integers], optional
+        List of dependencies' job IDs, by default None
+    no_sbatch : bool, optional
+        Executes the command without SLURM, by default False. Used during testing.
+    kwargs : Any
+        Additional keyword arguments. These arguments aren't pickled and are provided through the CLI submission.
+        Using `kwargs` is the recommended way of using indexing or emulating a SLURM job-array.
+
+    Returns
+    -------
+    Union[int, subprocess.CompletedProcess]
+        Job ID of submitted job or CompletedProcess object when `no_sbatch` is True.
+    """
+
     function_path = Path(get_bytes_file_name(slurm_function)).resolve()
     if not function_path.exists():
         with open(function_path, mode="wb") as f:
