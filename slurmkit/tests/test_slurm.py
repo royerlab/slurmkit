@@ -79,3 +79,24 @@ def test_slurm_dependency(shared_path: Path) -> None:
 
     arr = zarr.open(out_path)
     assert np.allclose(arr[:], 2)
+
+
+def test_int_indexing(shared_path: Path) -> None:
+    @slurm_function
+    def _show_int(value: int) -> None:
+        assert isinstance(value, int)
+        print(f"Value {size}", value)
+
+    output = shared_path / "slurmkit-test-%j.out"
+    params = SlurmParams(output=output)
+    size = 10
+
+    jobs = [submit_function(_show_int(), params, value=i) for i in range(size)]
+
+    # waiting for jobs to complete
+    time.sleep(3)
+
+    for i in range(size):
+        path = str(output).replace("%j", str(jobs[i]))
+        with open(path) as f:
+            assert int(f.read()[-2]) == i
