@@ -20,6 +20,7 @@ class SlurmParams(BaseModel):
     output: Optional[Union[str, Path]] = None
     error: Optional[Union[str, Path]] = None
     nodes: Optional[int] = None
+    gpus_per_node: Optional[int] = None
     cpus_per_task: Optional[int] = None
     cpus_per_gpu: Optional[int] = None
     mem: Optional[str] = None
@@ -100,6 +101,17 @@ class SlurmParams(BaseModel):
                 f"`{field}` must end with on of {mem_types}. Received {value}."
             )
 
+        return value
+
+    @validator("output")
+    def validate_output_directory(
+        cls, value: Optional[Union[Path, str]]
+    ) -> Optional[Path]:
+        if value is None:
+            return None
+
+        value = Path(value)
+        value.parent.mkdir(exist_ok=True)
         return value
 
     def __str__(self) -> str:
@@ -210,6 +222,7 @@ def get_bytes_file_name(data: bytes) -> str:
     """Creates a unique name for each `data`."""
     name = base64.b64encode(hashlib.sha1(data).digest()).decode()
     name = name.replace("/", "_")
+    name = name.replace("=", "_")
     return f"{name}.pickle"
 
 
