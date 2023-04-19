@@ -20,13 +20,14 @@ class SlurmParams(BaseModel):
     output: Optional[Union[str, Path]] = None
     error: Optional[Union[str, Path]] = None
     nodes: Optional[int] = None
+    gpus: Optional[int] = None
     gpus_per_node: Optional[int] = None
     cpus_per_task: Optional[int] = None
     cpus_per_gpu: Optional[int] = None
     mem: Optional[str] = None
     mem_per_cpu: Optional[str] = None
     mem_per_gpu: Optional[str] = None
-    partition: Optional[Literal["cpu", "gpu"]] = None
+    partition: Optional[Literal["cpu", "gpu", "preempted"]] = None
     time: Optional[datetime.timedelta] = None
     kill_on_invalid_dep: Optional[Literal["yes", "no"]] = None
     chdir: Optional[Path] = None
@@ -59,6 +60,13 @@ class SlurmParams(BaseModel):
             raise ValueError(
                 f"Mutually exclusive fields `{exclusive_fields}` where set."
             )
+
+    @validator("gpus")
+    def validate_gpus_exclusivity(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
+        cls.check_mutual_exclusivity(values, ["gpus", "gpus_per_node"])
+        return value
 
     @validator("cpus_per_task")
     def validate_cpus_exclusivity(
