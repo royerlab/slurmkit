@@ -106,6 +106,7 @@ def test_int_indexing() -> None:
     time.sleep(3)
 
     for i in range(size):
-        path = str(output).replace("%j", str(jobs[i]))
+        path = output.replace("%j", str(jobs[i]))
         with open(path) as f:
-            assert int(f.read()[-2]) == i
+            content = f.read()
+            assert int(content[-2]) == i
