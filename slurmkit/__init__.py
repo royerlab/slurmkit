@@ -49,6 +49,7 @@ class SlurmParams(BaseModel):
     cores_per_socket: Optional[int] = None
     threads_per_core: Optional[int] = None
     threads_per_node: Optional[int] = None
+    job_name: Optional[str] = None
 
     @staticmethod
     def check_mutual_exclusivity(
@@ -235,7 +236,7 @@ def get_bytes_file_name(data: bytes) -> str:
 
 
 def submit_function(
-    slurm_function: bytes,
+    slurm_function: tuple[str, bytes],
     slurm_params: Optional[SlurmParams] = None,
     dependencies: SlurmDependencies | Optional[Integers] = None,
     no_sbatch: bool = False,
@@ -245,8 +246,8 @@ def submit_function(
 
     Parameters
     ----------
-    args : Sequence[str]
-        List of commands and parameters, just like `subprocess.run`.
+    slurm_function : tuple[str, bytes]
+        Function to be processed on SLURM.
     slurm_params : Optional[SlurmParams], optional
         sbatch parameters, by default None
     dependencies : SlurmDependencies | Optional[Integers], optional
@@ -263,16 +264,24 @@ def submit_function(
         Job ID of submitted job or CompletedProcess object when `no_sbatch` is True.
     """
 
-    function_path = Path(get_bytes_file_name(slurm_function)).resolve()
-    if not function_path.exists():
-        with open(function_path, mode="wb") as f:
-            f.write(slurm_function)
+    func_name, func = slurm_function
 
-    command = ["funcall", str(function_path)]
+    func_path = Path(get_bytes_file_name(func)).resolve()
+    if not func_path.exists():
+        with open(func_path, mode="wb") as f:
+            f.write(func)
+
+    command = ["funcall", str(func_path)]
     if len(kwargs) > 0:
         command.append("--params")
         for key, value in kwargs.items():
             command += [key, str(value)]
+
+    if slurm_params is None:
+        slurm_params = SlurmParams()
+
+    if slurm_params.job_name is None:
+        slurm_params.job_name = func_name
 
     return submit_cli(
         command,
@@ -292,12 +301,12 @@ def slurm_function(func: Callable) -> Callable:
         Function that returns a delayed function tuple.
     """
 
-    def pickled_function(*args, **kwargs) -> bytes:
+    def pickled_function(*args, **kwargs) -> tuple[str, bytes]:
         func_tuple = (func, args, kwargs)
         LOG.info(
             f"Pickling function `{func.__name__}` with args={args} and kwargs={kwargs}."
         )
-        return cloudpickle.dumps(func_tuple)
+        return func.__name__, cloudpickle.dumps(func_tuple)
 
     try:
         pickled_function = functools.wraps(func)(pickled_function)
