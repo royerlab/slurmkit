@@ -5,7 +5,7 @@ import hashlib
 import logging
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union, cast
 
 import cloudpickle
 from pydantic import BaseModel, validator
@@ -281,6 +281,7 @@ def submit_function(
         slurm_params = SlurmParams()
 
     if slurm_params.job_name is None:
+        slurm_params = cast(SlurmParams, slurm_params.copy())
         slurm_params.job_name = func_name
 
     return submit_cli(
