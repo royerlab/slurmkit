@@ -157,7 +157,10 @@ class SlurmDependencies(BaseModel):
     minutes: int = 0
 
     def __str__(self) -> str:
-        if self.values is None:
+        # is none or empty list
+        if self.values is None or (
+            not isinstance(self.values, int) and len(self.values) == 0
+        ):
             return ""
 
         if isinstance(self.values, int):
