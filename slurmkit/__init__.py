@@ -27,7 +27,7 @@ class SlurmParams(BaseModel):
     mem: Optional[str] = None
     mem_per_cpu: Optional[str] = None
     mem_per_gpu: Optional[str] = None
-    partition: Optional[Literal["cpu", "gpu", "preempted"]] = None
+    partition: Optional[Literal["cpu", "gpu", "preempted", "cpu,gpu"]] = None
     time: Optional[datetime.timedelta] = None
     kill_on_invalid_dep: Optional[Literal["yes", "no"]] = None
     chdir: Optional[Path] = None
@@ -213,6 +213,10 @@ def submit_cli(
     if not isinstance(dependencies, SlurmDependencies):
         dependencies = SlurmDependencies(values=dependencies)
 
+    if not no_sbatch and subprocess.call(["which", "sbatch"]) != 0:
+        LOG.warning("Command `sbatch` not found. Running command without SLURM.")
+        no_sbatch = True
+
     if no_sbatch:
         command = list(args)
     else:
@@ -225,7 +229,11 @@ def submit_cli(
 
     LOG.info(f"Executing: {' '.join(command)}")
 
-    complete_proc = subprocess.run(command, capture_output=True, check=True)
+    try:
+        complete_proc = subprocess.run(command, capture_output=True, check=True)
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Command {e.cmd} failed with {e.stderr.decode()}")
 
     return complete_proc if no_sbatch else int(complete_proc.stdout)
 
