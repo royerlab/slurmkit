@@ -213,7 +213,10 @@ def submit_cli(
     if not isinstance(dependencies, SlurmDependencies):
         dependencies = SlurmDependencies(values=dependencies)
 
-    if not no_sbatch and subprocess.call(["which", "sbatch"]) != 0:
+    if (
+        not no_sbatch
+        and subprocess.call(["which", "sbatch"], stdout=subprocess.DEVNULL) != 0
+    ):
         LOG.warning("Command `sbatch` not found. Running command without SLURM.")
         no_sbatch = True
 
