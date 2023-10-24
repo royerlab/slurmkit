@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "slurmkit"
-version = "0.1.2"
+version = "0.1.3"
 description = ""
 authors = ["Jordao Bragantini <jordao.bragantini@czbiohub.org>"]
 readme = "README.md"

@@ -1,7 +1,48 @@
 import argparse
+import logging
 import pickle
 import sys
-from typing import Callable, Dict, Optional, Sequence, Tuple, get_type_hints
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, get_type_hints
+
+LOG = logging.getLogger(__name__)
+
+
+def _type_cast(types: Dict[str, Callable], param_name: str, param: str) -> Any:
+    """
+    Casts a parameter to its type annotation.
+
+    TODO: Add test that covers the case where the type annotation is not found.
+
+    Parameters
+    ----------
+    types : Dict[str, Callable]
+        Dictionary of type annotations.
+    param_name : str
+        Name of the parameter.
+    param : str
+        Value of the parameter.
+
+    Returns
+    -------
+    Any
+        The parameter casted to its type annotation.
+    """
+
+    try:
+        return types[param_name](param)
+
+    except KeyError:
+        try:
+            LOG.warning(
+                f"Could not find type for parameter {param_name}. Using `float` as default."
+            )
+            return float(param)
+
+        except ValueError:
+            LOG.warning(
+                f"Could not cast parameter {param_name} to `float`. Using `str` as default."
+            )
+            return str(param)
 
 
 def _parse_args(argv: Optional[Sequence[str]]) -> Tuple[Callable, Sequence, Dict]:
@@ -31,7 +72,7 @@ def _parse_args(argv: Optional[Sequence[str]]) -> Tuple[Callable, Sequence, Dict
     types = get_type_hints(func)
 
     params = {
-        name: types[name](value)
+        name: _type_cast(types, name, value)
         for name, value in zip(cli_args["params"][::2], cli_args["params"][1::2])
     }
 
