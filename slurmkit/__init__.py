@@ -27,7 +27,7 @@ class SlurmParams(BaseModel):
     mem: Optional[str] = None
     mem_per_cpu: Optional[str] = None
     mem_per_gpu: Optional[str] = None
-    partition: Optional[Literal["cpu", "gpu", "preempted", "cpu,gpu"]] = None
+    partition: Optional[Literal["cpu", "gpu", "preempted", "preempted,cpu", "preempted,gpu"]] = None
     time: Optional[datetime.timedelta] = None
     kill_on_invalid_dep: Optional[Literal["yes", "no"]] = None
     chdir: Optional[Path] = None
