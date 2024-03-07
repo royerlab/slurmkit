@@ -29,7 +29,14 @@ def _type_cast(types: Dict[str, Callable], param_name: str, param: str) -> Any:
     """
 
     try:
-        return types[param_name](param)
+        var_type = types[param_name]
+
+        if var_type == bool:
+            # NOTE: boolean typecast bool("False") == True
+            is_false = param.lower() == "false" or param == "0"
+            return not is_false
+
+        return var_type(param)
 
     except KeyError:
         try:
