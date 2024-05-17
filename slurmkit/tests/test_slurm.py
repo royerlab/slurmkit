@@ -1,6 +1,5 @@
 import os
 import shutil
-import time
 from pathlib import Path
 from typing import Generator, cast
 
@@ -46,11 +45,8 @@ def test_simple_slurm() -> None:
         print(f"{a} + {b} = {c}")
 
     output = "output-%j.out"
-    params = SlurmParams(output=output, mem="5M")
+    params = SlurmParams(output=output, mem="5M", wait=True)
     job = submit_function(add(1, 2), params)
-
-    # waiting for jobs to complete
-    time.sleep(3)
 
     with open(output.replace("%j", str(job))) as f:
         assert int(f.read()[-2]) == 3
@@ -80,11 +76,11 @@ def test_slurm_dependency() -> None:
 
     jobs = [cast(int, submit_function(create_ones, params, out_path=p)) for p in paths]
 
+    # waiting for the job to finish
+    params.wait = True
+
     out_path = "out.zarr"
     submit_function(_sum_zarr(*paths, out_path=out_path), params, dependencies=jobs)
-
-    # waiting for jobs to complete
-    time.sleep(3)
 
     arr = zarr.open(out_path)
     assert np.allclose(arr[:], 2)
@@ -97,13 +93,10 @@ def test_int_indexing() -> None:
         print(f"Value {size}", value)
 
     output = "slurmkit-test-%j.out"
-    params = SlurmParams(output=output)
+    params = SlurmParams(output=output, wait=True)
     size = 10
 
     jobs = [submit_function(_show_int(), params, value=i) for i in range(size)]
-
-    # waiting for jobs to complete
-    time.sleep(3)
 
     for i in range(size):
         path = output.replace("%j", str(jobs[i]))

@@ -50,6 +50,7 @@ class SlurmParams(BaseModel):
     threads_per_core: Optional[int] = None
     threads_per_node: Optional[int] = None
     job_name: Optional[str] = None
+    wait: bool = False
 
     @staticmethod
     def check_mutual_exclusivity(
