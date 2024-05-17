@@ -7,14 +7,7 @@ import numpy as np
 import pytest
 import zarr
 
-from slurmkit import SlurmParams, slurm_function, slurm_wait, submit_function
-
-
-def has_slurm() -> bool:
-    return shutil.which("sbatch") is not None
-
-
-pytestmark = pytest.mark.skipif(not has_slurm(), reason="SLURM not found.")
+from slurmkit import HAS_SLURM, SlurmParams, slurm_function, slurm_wait, submit_function
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +15,11 @@ def change_to_shared_dir(monkeypatch: pytest.MonkeyPatch) -> Generator:
     """Moves to temporary shared directory"""
     prev_path = Path(".")
 
-    path = Path(os.environ["MYDATA"])
+    try:
+        path = Path(os.environ["MYDATA"])
+    except KeyError:
+        path = Path("/tmp")
+
     assert path.exists()
     path = path / "slurmkit_test"
 
@@ -36,20 +33,6 @@ def change_to_shared_dir(monkeypatch: pytest.MonkeyPatch) -> Generator:
 
     monkeypatch.chdir(prev_path)
     shutil.rmtree(path)
-
-
-def test_simple_slurm() -> None:
-    @slurm_function
-    def add(a: int, b: int) -> None:
-        c = a + b
-        print(f"{a} + {b} = {c}")
-
-    output = "output-%j.out"
-    params = SlurmParams(output=output, mem="5M", wait=True)
-    job = submit_function(add(1, 2), params)
-
-    with open(output.replace("%j", str(job))) as f:
-        assert int(f.read()[-2]) == 3
 
 
 def test_slurm_dependency() -> None:
@@ -87,6 +70,22 @@ def test_slurm_dependency() -> None:
     assert np.allclose(arr[:], 2)
 
 
+@pytest.mark.skipif(not HAS_SLURM, reason="SLURM not found.")
+def test_simple_slurm() -> None:
+    @slurm_function
+    def add(a: int, b: int) -> None:
+        c = a + b
+        print(f"{a} + {b} = {c}")
+
+    output = "output-%j.out"
+    params = SlurmParams(output=output, mem="5M", wait=True)
+    job = submit_function(add(1, 2), params)
+
+    with open(output.replace("%j", str(job))) as f:
+        assert int(f.read()[-2]) == 3
+
+
+@pytest.mark.skipif(not HAS_SLURM, reason="SLURM not found.")
 def test_int_indexing() -> None:
     @slurm_function
     def _show_int(value: int) -> None:

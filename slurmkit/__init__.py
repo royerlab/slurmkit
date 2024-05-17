@@ -4,6 +4,7 @@ import functools
 import hashlib
 import logging
 import subprocess
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union, cast
 
@@ -15,6 +16,8 @@ Dependencies = Union[Dependency, Sequence[Dependency], None]
 
 
 LOG = logging.getLogger(__name__)
+
+HAS_SLURM = subprocess.call(["which", "sbatch"], stdout=subprocess.DEVNULL) == 0
 
 
 class SlurmParams(BaseModel):
@@ -226,10 +229,7 @@ def submit_cli(
     if not isinstance(dependencies, SlurmDependencies):
         dependencies = SlurmDependencies(values=dependencies)
 
-    if (
-        not no_sbatch
-        and subprocess.call(["which", "sbatch"], stdout=subprocess.DEVNULL) != 0
-    ):
+    if not no_sbatch and not HAS_SLURM:
         LOG.warning("Command `sbatch` not found. Running command without SLURM.")
         no_sbatch = True
 
@@ -352,7 +352,7 @@ def slurm_function(func: Callable) -> Callable:
 
 def slurm_wait(
     dependencies: SlurmDependencies | Dependencies = None,
-) -> Union[int, subprocess.CompletedProcess]:
+) -> Union[int, subprocess.CompletedProcess, None]:
     """
     Creates a dummy job that blocks the execution until all dependencies are finished.
 
@@ -362,9 +362,13 @@ def slurm_wait(
 
     Returns
     -------
-    Union[int, subprocess.CompletedProcess]
+    Union[int, subprocess.CompletedProcess, None]
         Job ID of dummy job or CompletedProcess object when `sbatch` is not available.
     """
+    if not HAS_SLURM:
+        warnings.warn("Command `sbatch` not found. Ignoring `slurm_wait`.")
+        return None
+
     slurm_params = SlurmParams(
         mem="1M",
         wait=True,
