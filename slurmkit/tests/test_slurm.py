@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import zarr
 
-from slurmkit import SlurmParams, slurm_function, submit_function
+from slurmkit import SlurmParams, slurm_function, slurm_wait, submit_function
 
 
 def has_slurm() -> bool:
@@ -76,11 +76,12 @@ def test_slurm_dependency() -> None:
 
     jobs = [cast(int, submit_function(create_ones, params, out_path=p)) for p in paths]
 
-    # waiting for the job to finish
-    params.wait = True
-
     out_path = "out.zarr"
-    submit_function(_sum_zarr(*paths, out_path=out_path), params, dependencies=jobs)
+    sum_job = submit_function(
+        _sum_zarr(*paths, out_path=out_path), params, dependencies=jobs
+    )
+
+    slurm_wait(sum_job)
 
     arr = zarr.open(out_path)
     assert np.allclose(arr[:], 2)
@@ -93,10 +94,12 @@ def test_int_indexing() -> None:
         print(f"Value {size}", value)
 
     output = "slurmkit-test-%j.out"
-    params = SlurmParams(output=output, wait=True)
+    params = SlurmParams(output=output)
     size = 10
 
     jobs = [submit_function(_show_int(), params, value=i) for i in range(size)]
+
+    slurm_wait(jobs)
 
     for i in range(size):
         path = output.replace("%j", str(jobs[i]))

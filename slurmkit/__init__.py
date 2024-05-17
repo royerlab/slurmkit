@@ -10,7 +10,8 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union
 import cloudpickle
 from pydantic import BaseModel, validator
 
-Integers = Union[int, Sequence[int]]
+Dependency = Union[int, subprocess.CompletedProcess]
+Dependencies = Union[Dependency, Sequence[Dependency], None]
 
 
 LOG = logging.getLogger(__name__)
@@ -151,11 +152,22 @@ class SlurmParams(BaseModel):
 
 
 class SlurmDependencies(BaseModel):
-    values: Optional[Integers] = None
+    values: Optional[List[int]] = None
     dep_type: Literal[
         "after", "afterany", "afternotok", "afterok", "singleton"
     ] = "afterok"
     minutes: int = 0
+
+    @validator("values", pre=True, always=True)
+    def validate_values(cls, value: Dependencies) -> List[int]:
+        if value is None:
+            return []
+
+        if not isinstance(value, list):
+            value = [cast(Dependency, value)]
+
+        int_list = [v for v in value if isinstance(v, int)]
+        return int_list
 
     def __str__(self) -> str:
         # is none or empty list
@@ -186,7 +198,7 @@ class SlurmDependencies(BaseModel):
 def submit_cli(
     args: Sequence[str],
     slurm_params: Optional[SlurmParams] = None,
-    dependencies: SlurmDependencies | Optional[Integers] = None,
+    dependencies: SlurmDependencies | Dependencies = None,
     no_sbatch: bool = False,
 ) -> Union[int, subprocess.CompletedProcess]:
     """SLURM sbatch submission using CLI instructions.
@@ -197,7 +209,7 @@ def submit_cli(
         List of commands and parameters, just like `subprocess.run`.
     slurm_params : Optional[SlurmParams], optional
         sbatch parameters, by default None
-    dependencies : SlurmDependencies | Optional[Integers], optional
+    dependencies : SlurmDependencies | Dependencies, optional
         List of dependencies' job IDs, by default None
     no_sbatch : bool, optional
         Executes the command without SLURM, by default False. Used during testing.
@@ -231,13 +243,19 @@ def submit_cli(
             + list(args)
         )
 
-    LOG.info(f"Executing: {' '.join(command)}")
+    str_cmd = " ".join(command)
+    LOG.info("Executing: {}", str_cmd)
 
-    try:
-        complete_proc = subprocess.run(command, capture_output=True, check=True)
+    complete_proc = subprocess.run(command, capture_output=True)
 
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Command {e.cmd} failed with {e.stderr.decode()}")
+    # slurm wait changes return value
+    # https://slurm.schedmd.com/sbatch.html#OPT_wait
+    if (slurm_params.wait and complete_proc.returncode == 1) or (
+        not slurm_params.wait and complete_proc.returncode
+    ):
+        raise RuntimeError(
+            f"Command '{str_cmd}' failed with {complete_proc.stderr.decode()}"
+        )
 
     return complete_proc if no_sbatch else int(complete_proc.stdout)
 
@@ -253,7 +271,7 @@ def get_bytes_file_name(data: bytes) -> str:
 def submit_function(
     slurm_function: tuple[str, bytes],
     slurm_params: Optional[SlurmParams] = None,
-    dependencies: SlurmDependencies | Optional[Integers] = None,
+    dependencies: SlurmDependencies | Dependencies = None,
     no_sbatch: bool = False,
     **kwargs: Any,
 ) -> Union[int, subprocess.CompletedProcess]:
@@ -265,7 +283,7 @@ def submit_function(
         Function to be processed on SLURM.
     slurm_params : Optional[SlurmParams], optional
         sbatch parameters, by default None
-    dependencies : SlurmDependencies | Optional[Integers], optional
+    dependencies : SlurmDependencies | Dependencies, optional
         List of dependencies' job IDs, by default None
     no_sbatch : bool, optional
         Executes the command without SLURM, by default False. Used during testing.
@@ -330,3 +348,32 @@ def slurm_function(func: Callable) -> Callable:
         LOG.warn(f"`functools.wraps` failed on {func.__name__}")
 
     return pickled_function
+
+
+def slurm_wait(
+    dependencies: SlurmDependencies | Dependencies = None,
+) -> Union[int, subprocess.CompletedProcess]:
+    """
+    Creates a dummy job that blocks the execution until all dependencies are finished.
+
+    Parameters
+    ----------
+    dependencies : SlurmDependencies | Dependencies, optional
+
+    Returns
+    -------
+    Union[int, subprocess.CompletedProcess]
+        Job ID of dummy job or CompletedProcess object when `sbatch` is not available.
+    """
+    slurm_params = SlurmParams(
+        mem="1M",
+        wait=True,
+        job_name="WAIT_SK",
+        output="/tmp/slurmkit_wait_output_%j.out",
+    )
+
+    return submit_cli(
+        ['--wrap="echo $SLURM_JOB_ID'],
+        slurm_params=slurm_params,
+        dependencies=dependencies,
+    )

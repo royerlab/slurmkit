@@ -15,7 +15,6 @@ def change_test_dir(
 
 
 def test_submission_and_funcall() -> None:
-
     msg = "Sample of length {} from population of length {}."
 
     @slurm_function
