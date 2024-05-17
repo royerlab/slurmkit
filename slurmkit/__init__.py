@@ -375,11 +375,11 @@ def slurm_wait(
         mem="1M",
         wait=True,
         job_name="WAIT_SK",
-        output="/tmp/slurmkit_wait_output_%j.out",
+        # output="/tmp/slurmkit_wait_output_%j.out",
     )
 
     return submit_cli(
-        ['--wrap="echo $SLURM_JOB_ID"'],
+        ['--wrap="date"'],
         slurm_params=slurm_params,
         dependencies=dependencies,
     )
