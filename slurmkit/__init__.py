@@ -354,7 +354,7 @@ def slurm_function(func: Callable) -> Callable:
 
 def slurm_wait(
     dependencies: SlurmDependencies | Dependencies = None,
-) -> Union[int, subprocess.CompletedProcess, None]:
+) -> Optional[Dependency]:
     """
     Creates a dummy job that blocks the execution until all dependencies are finished.
 
@@ -364,8 +364,8 @@ def slurm_wait(
 
     Returns
     -------
-    Union[int, subprocess.CompletedProcess, None]
-        Job ID of dummy job or CompletedProcess object when `sbatch` is not available.
+    Optional[Dependency]
+        Job ID of dummy job or None when `sbatch` is not available.
     """
     if not HAS_SLURM:
         warnings.warn("Command `sbatch` not found. Ignoring `slurm_wait`.")
