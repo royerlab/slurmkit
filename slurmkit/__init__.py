@@ -379,7 +379,7 @@ def slurm_wait(
     )
 
     return submit_cli(
-        ['--wrap="echo $SLURM_JOB_ID'],
+        ['--wrap="echo $SLURM_JOB_ID"'],
         slurm_params=slurm_params,
         dependencies=dependencies,
     )
