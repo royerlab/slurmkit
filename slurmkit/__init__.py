@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union, cast
 
 import cloudpickle
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, validator
 
 Dependency = Union[int, subprocess.CompletedProcess]
 Dependencies = Union[Dependency, Sequence[Dependency], None]
@@ -57,6 +57,9 @@ class SlurmParams(BaseModel):
     threads_per_node: Optional[int] = None
     job_name: Optional[str] = None
     wait: bool = False
+    constraint: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
 
     @staticmethod
     def check_mutual_exclusivity(
@@ -136,7 +139,7 @@ class SlurmParams(BaseModel):
     def tolist(self) -> List[str]:
         options = []
         for param, value in self:
-            if value is None:
+            if value is None or param == "model_config":
                 continue
 
             param = param.replace("_", "-")
