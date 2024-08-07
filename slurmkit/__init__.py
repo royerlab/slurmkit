@@ -3,6 +3,7 @@ import datetime
 import functools
 import hashlib
 import logging
+import platform
 import subprocess
 import warnings
 from pathlib import Path
@@ -17,7 +18,9 @@ Dependencies = Union[Dependency, Sequence[Dependency], None]
 
 LOG = logging.getLogger(__name__)
 
-HAS_SLURM = subprocess.call(["which", "sbatch"], stdout=subprocess.DEVNULL) == 0
+HAS_SLURM = False
+if platform.system() == "Linux":
+    HAS_SLURM = subprocess.call(["which", "sbatch"], stdout=subprocess.DEVNULL) == 0
 
 
 class SlurmParams(BaseModel):
