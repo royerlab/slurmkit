@@ -1,26 +1,29 @@
-[tool.poetry]
+[project]
 name = "slurmkit"
-version = "0.2.0"
+version = "0.3.0"
 description = ""
-authors = ["Jordao Bragantini <jordao.bragantini@czbiohub.org>"]
 readme = "README.md"
+authors = [
+    { name = "Jordao Bragantini", email = "jordao.bragantini@czbiohub.org"}
+]
+dependencies = [
+    "pydantic>=2.0.0",
+    "cloudpickle>=3.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-pydantic = "^1.10.7"
-cloudpickle = "^3.0.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.2.2",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.1.1",
+    "pre-commit>=3.2.1",
+    "zarr>=2.14.2",
+    "numpy>=1.24.2",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.2.2"
-pytest-cov = "^4.0.0"
-mypy = "^1.1.1"
-pre-commit = "^3.2.1"
-zarr = "^2.14.2"
-numpy = "^1.24.2"
+[project.scripts]
+funcall = "slurmkit.funcall:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-funcall = "slurmkit.funcall:main"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

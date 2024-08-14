@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Union, cast
 
 import cloudpickle
-from pydantic import BaseModel, ConfigDict, validator
+from pydantic.v1 import BaseModel, ConfigDict, validator
 
 Dependency = Union[int, subprocess.CompletedProcess]
 Dependencies = Union[Dependency, Sequence[Dependency], None]
@@ -31,9 +31,7 @@ class SlurmParams(BaseModel):
     mem: Optional[str] = None
     mem_per_cpu: Optional[str] = None
     mem_per_gpu: Optional[str] = None
-    partition: Optional[
-        Literal["cpu", "gpu", "preempted", "preempted,cpu", "preempted,gpu"]
-    ] = None
+    partition: Optional[Literal["cpu", "gpu", "preempted"]] = None
     time: Optional[datetime.timedelta] = None
     kill_on_invalid_dep: Optional[Literal["yes", "no"]] = None
     chdir: Optional[Path] = None
