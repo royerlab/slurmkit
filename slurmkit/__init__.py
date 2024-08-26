@@ -59,6 +59,7 @@ class SlurmParams(BaseModel):
     job_name: Optional[str] = None
     wait: bool = False
     constraint: Optional[str] = None
+    qos: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
