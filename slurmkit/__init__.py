@@ -250,7 +250,7 @@ def submit_cli(
         )
 
     str_cmd = " ".join(command)
-    LOG.info("Executing: {}", str_cmd)
+    LOG.info(f"Executing: {str_cmd}")
 
     complete_proc = subprocess.run(command, capture_output=True)
 
